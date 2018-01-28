@@ -1,86 +1,103 @@
-WIDTH = 1000
-HEIGHT = 1000
-rectSize = 20
+WIDTH = 1024
+HEIGHT = 1024
+rectSize = 16
+
+from Grid import Grid
+from Color import Color
+from Button import Button
+from Simulation import SimGrid
+from sys import stdout
+from copy import deepcopy
+printable = '\'0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\\\'()*+,-./:;<=>?@[\\\\]^_`{|}~ \t\n\r\x0b\x0c\''
 
 ### BEGIN CLASSES ###
-class Color:
-    
-    def __init__(self, r, g, b):
-        self.r = r
-        self.g = g
-        self.b = b
-    
-    def toColor(self):
-        return color(self.r, self.g, self.b)
-
-Color.default = Color(0,0,0)
-
-class Grid:
-    def __init__(self, width, height, _rect, _fill, sqrSize):
-        self.grid = []
-        self.width = width
-        self.height = height
-        for i in range(height):
-            row = []
-            for j in range(width):
-                row.append(Color.default)
-            self.grid.append(row)
-        self._setupDraw(_rect, _fill, sqrSize)
-    
-    def _setupDraw(self, _rect, _fill, _sqrSize):
-        self._rect = _rect
-        self._fill = _fill
-        self._sqrSize = _sqrSize
-    
-    def _reset_background(self):
-        self._rect(0, 0, width*self._sqrSize, height*self._sqrSize)
-    
-    def draw(self):
-        self._reset_background()
-        self._draw()
-    
-    def _draw(self):
-        for (rowN, row) in enumerate(self.grid):
-            for (itemN, item) in enumerate(row):
-                self._fill(item.toColor())
-                self._rect(rowN*self._sqrSize, itemN*self._sqrSize, self._sqrSize, self._sqrSize)
-    
-    def coordFromMouse(self, mx, my):
-        return (int(mx/self._sqrSize), int(my/self._sqrSize))
-    
-    def resetColors(self):
-        self.grid = []
-        for i in range(self.height):
-            row = []
-            for j in range(self.width):
-                row.append(Color.default)
-            self.grid.append(row)
-    
-    def __getitem__(self, x):
-        return self.grid[x]
-    
-    def __setitem__(self, x, y):
-        self.grid[x] = y
 
 
 grid = Grid(WIDTH/rectSize, HEIGHT/rectSize, rect, fill, rectSize)
 
+COPY_SIZE = 100
 
 def setup():
-    size(WIDTH, HEIGHT)
+    global runButton, playButton, grid
+    size(WIDTH, HEIGHT, P2D)
     background(0)
     smooth(8)
+    runButton = Button("Generation", 52)
+    runButton.setupXY(0, 0)
+    playButton = Button("Serialize", 52)
+    playButton.setupXY(300, 0)
+    
+    selectInput("Select file to open:", "openFileSelected")
+
+def openFileSelected(f):
+    global grid
+    with open(f.getAbsolutePath(), "r") as f:
+        grid.apply_serialized(f.read())
+
+runButton = None
+playButton = None
 
 def draw():
     global lastx, lasty, eraseLast
     background(255)
     fill(color(0,255,0))
-    grid.draw()
+    if grid is not None:
+        grid.draw()
+    # Draw overlaid buttons
+    overlay()
+    overlayMouse()
+
+# If true, makes the buttons semi-transparent so you can see the cells underneath.
+beAlpha = False
 
 def mouseDragged():
-    eraseLast = False
+    global beAlpha
     x, y = grid.coordFromMouse(mouseX, mouseY)
-    if mouseButton == LEFT:
-        grid[x][y] = Color(0,255,0)
-    elif mouseButton == RIGHT:
-        grid[x][y] = Color(0,0,0)
+    if x > grid.width-1 or x < 0 or y > grid.height-1 or y < 0:
+        pass
+    else:
+        if mouseButton == LEFT:
+            grid[x][y] = Color.cell
+        elif mouseButton == RIGHT:
+            grid[x][y] = Color.default
+    beAlpha = True
+
+def mouseReleased():
+    global beAlpha
+    beAlpha = False
+
+serialized = ""
+
+def mousePressed():
+    if runButton.clicked(mouseX, mouseY):
+        s = grid.to_simgrid()
+        s.sim_gen()
+        grid.from_simgrid(s)
+    if playButton.clicked(mouseX, mouseY):
+        global serialized
+        serialized = grid.serialize()
+        selectOutput("Select a file to save your grid to:", "gotFile")
+
+def gotFile(f):
+    with open(f.getAbsolutePath(), "w") as ff:
+        ff.write(serialized)
+    print("Written serialized grid!")
+
+def overlay():
+    global beAlpha
+    # Run button
+    if beAlpha:
+        runButton.a = .5
+        playButton.a = .5
+    else:
+        runButton.a = 1
+        playButton.a = 1
+    runButton.draw()
+    playButton.draw()
+
+def overlayMouse():
+    x, y = grid.coordFromMouse(mouseX, mouseY)
+    x = rectSize*x
+    y = rectSize*y
+    fill(color(Color.cell.r, Color.cell.g, Color.cell.b, .5*255))
+    rect(x, y, rectSize, rectSize)
