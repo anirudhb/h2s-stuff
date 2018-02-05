@@ -1,5 +1,3 @@
-#![feature(conservative_impl_trait)]
-
 extern crate ggez;
 use ggez::*;
 use ggez::graphics::{DrawMode, Color, Rect};
@@ -30,7 +28,9 @@ impl MainState {
 
 impl event::EventHandler for MainState {
     fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
-        self.grid.set(self.cur_x, self.cur_y, 0);
+        if self.cur_x >= 0 {
+            self.grid.set(self.cur_x, self.cur_y, 0);
+        }
         self.cur_x += 1;
         if self.cur_x+1 == self.width {
             self.cur_y += 1;
@@ -48,8 +48,9 @@ impl event::EventHandler for MainState {
         graphics::clear(ctx);
         let sqr_size = self.sqr_size;
         // Draw each square
-        for (cell, x, y) in self.grid.cells_with_pos() {
-            if *cell == 1 {
+        for &(cell, x, y) in &self.grid.dirty {
+            // println!("Got cell: {0} @ ({1}, {2})", cell, x, y);
+            if cell == 1 {
                 graphics::set_color(ctx, Color::new(0f32,1f32,0f32,1f32));
             } else {
                 graphics::set_color(ctx, Color::new(0f32,0f32,0f32,1f32));
@@ -60,6 +61,8 @@ impl event::EventHandler for MainState {
                 sqr_size as f32, sqr_size as f32
             ));
         }
+        self.grid.scrap_dirty();
+        graphics::present(ctx);
         Ok(())
     }
 }

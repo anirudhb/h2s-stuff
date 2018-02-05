@@ -1,0 +1,1 @@
+{"rustc":2076919156954903493,"features":"[]","target":5804051722375368929,"profile":731176819336294830,"deps":[["lyon_core v0.8.0",7653633077051602951],["lyon_path_builder v0.8.6",4639483727186176496],["svgparser v0.4.3",5758128339438238297]],"local":[{"Precalculated":"0.8.6"}],"rustflags":[]}

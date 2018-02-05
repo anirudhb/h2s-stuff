@@ -1,0 +1,1 @@
+{"rustc":2076919156954903493,"features":"[\"default\", \"rustc-serialize\"]","target":15288071071847983267,"profile":6372350028996545162,"deps":[["num-traits v0.1.42",12997610783971918272],["rustc-serialize v0.3.24",13365225486928065767]],"local":[{"Precalculated":"0.1.41"}],"rustflags":[]}

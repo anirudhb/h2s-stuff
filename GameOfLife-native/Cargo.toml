@@ -4,4 +4,7 @@ version = "0.1.0"
 authors = ["Anirudh Balaji <anirudhqazxswced@gmail.com>"]
 
 [dependencies]
-ggez = "0.4"
+ggez = "*"
+
+[profile.dev]
+opt-level = 3
