@@ -1,1 +1,0 @@
-{"rustc":2076919156954903493,"features":"[]","target":11483792836058993488,"profile":6175580927535387558,"deps":[["lyon_bezier v0.8.5",4610432772467496778],["lyon_core v0.8.0",6909429748422798186],["lyon_path_builder v0.8.6",2401306241158292508],["lyon_path_iterator v0.8.5",12583524055852771308]],"local":[{"Precalculated":"0.8.6"}],"rustflags":[]}

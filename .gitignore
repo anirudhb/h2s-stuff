@@ -1,2 +1,4 @@
 .DS_Store
 GameOfLife-native/target
+GameOfLife-native/.gitignore
+GameOfLife-native/Cargo.lock
