@@ -1,9 +1,16 @@
 extern crate ggez;
+extern crate rayon;
 use ggez::*;
 use ggez::graphics::{DrawMode, Color, Rect, Drawable};
 use ggez::event::*;
 mod grid;
-mod chunk;
+mod cell;
+mod sim;
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Task {
+    Step
+}
 
 struct MainState {
     grid: grid::Grid,
@@ -12,27 +19,22 @@ struct MainState {
     sqr_size: u32,
     curx: u32,
     cury: u32,
+    update_queue: Vec<Task>,
 }
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
-        graphics::set_mode(ctx, conf::WindowMode {
-            width: 640,
-            height: 640,
-            max_width: 0,
-            max_height: 0,
-            .. Default::default()
-        });
-        graphics::set_screen_coordinates(ctx, Rect::new(0f32, 0f32, 640f32, 640f32));
+        graphics::set_screen_coordinates(ctx, Rect::new(0f32, 0f32, 800f32, 800f32));
 
         let win_size = graphics::get_size(ctx);
         let s = Self {
-            width: 640,
-            height: 640,
+            width: 800,
+            height: 800,
             sqr_size: 8,
             curx: 0,
             cury: 0,
-            grid: grid::Grid::new((win_size.0 / 8), (win_size.1 / 8)),
+            grid: grid::Grid::new(100, 100),
+            update_queue: Vec::new(),
         };
         println!("Actual window size: {} x {}", win_size.0, win_size.1);
         Ok(s)
@@ -41,6 +43,14 @@ impl MainState {
 
 impl EventHandler for MainState {
     fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
+        let clone_queue = self.update_queue.clone();
+        let mut queue_iter = clone_queue.iter();
+        while let Some(task) = queue_iter.next() {
+            match task {
+                Step => self.step(),
+            }
+        }
+        self.update_queue.clear();
         Ok(())
     }
 
@@ -57,15 +67,15 @@ impl EventHandler for MainState {
         for (x, y) in self.grid.alive() {
             // println!("Got cell: {0} @ ({1}, {2})", cell, x, y);
             graphics::rectangle(ctx, graphics::DrawMode::Fill, Rect::new(
-                (x*(sqr_size-1)+sqr_size/2) as f32,
-                (y*(sqr_size-1)+sqr_size/2) as f32,
+                (x*sqr_size) as f32,
+                (y*sqr_size) as f32,
                 sqr_size as f32, sqr_size as f32
             ))?;
         }
         // Draw cursor.
         graphics::set_color(ctx, Color::new(0f32, 1f32, 0f32, 0.3));
         graphics::rectangle(ctx, DrawMode::Fill, Rect::new(
-                (self.curx*(sqr_size-1)+sqr_size/2) as f32, (self.cury*(sqr_size-1)+sqr_size/2) as f32,
+                (self.curx*sqr_size) as f32, (self.cury*sqr_size) as f32,
                 sqr_size as f32, sqr_size as f32
         ))?;
         graphics::present(ctx);
@@ -80,7 +90,7 @@ impl EventHandler for MainState {
                 }
             },
             Keycode::Down => {
-                if self.cury < self.grid.height() {
+                if self.cury < self.grid.height()-1 {
                     self.cury += 1;
                 }
             },
@@ -90,60 +100,50 @@ impl EventHandler for MainState {
                 }
             },
             Keycode::Right => {
-                if self.curx < self.grid.width() {
+                if self.curx < self.grid.width()-1 {
                     self.curx += 1;
                 }
             },
-            Keycode::KpEnter | Keycode::Return | Keycode::Return2 => {
+            Keycode::T => {
+                for _ in 0..10 {
+                    self.update_queue.push(Task::Step);
+                }
+            },
+            Keycode::KpEnter | Keycode::Return | Keycode::Return2 | Keycode::Space => {
                 self.grid.toggle(self.curx, self.cury);
             },
             Keycode::Tab => {
-                self.step(ctx);
+                self.step();
             }
             _ => {},
         }
     }
 
-    fn resize_event(&mut self, ctx: &mut Context, mut w: u32, mut h: u32) {
-        if w % chunk::CHUNK_SIZE != 0 {
-            w = w + chunk::CHUNK_SIZE - (w % chunk::CHUNK_SIZE);
-        }
-        if h % chunk::CHUNK_SIZE != 0 {
-            h = h + chunk::CHUNK_SIZE - (h % chunk::CHUNK_SIZE);
-        }
-
-        graphics::set_resolution(ctx, w, h);
-    }
 }
 
 impl MainState {
-    fn step(&mut self, ctx: &mut Context) {
-        // Split grid into chunks
-        let (ww, wh) = graphics::get_size(ctx);
-        let mut chunks = Vec::new();
-        for _i in 0..wh / chunk::CHUNK_SIZE {
-            let mut r = Vec::new();
-            for __i in 0..ww / chunk::CHUNK_SIZE {
-                r.push(chunk::Chunk::new());
-            }
-            chunks.push(r);
-        }
-        for (v, x, y) in self.grid.cells_with_pos() {
-            let chunk_x = x / chunk::CHUNK_SIZE;
-            let chunk_y = y / chunk::CHUNK_SIZE;
-            chunks[chunk_y as usize][chunk_x as usize].add(v).unwrap();
-        }
-        for cr in chunks {
-            for c in cr {
-                println!("Got chunk: {:?}", c);
-            }
-        }
+    fn step(&mut self) {
+        self.grid.simulate();
     }
 }
 
 fn main() {
-    let c = conf::Conf::new();
-    let ctx = &mut Context::load_from_conf("super_simple", "ggez", c).unwrap();
+    let c = conf::Conf {
+        window_setup: conf::WindowSetup {
+            title: "gol".to_owned(),
+            icon: "".to_owned(),
+            resizable: true,
+            allow_highdpi: true,
+            samples: conf::NumSamples::One,
+        },
+        backend: conf::Backend::default(),
+        window_mode: conf::WindowMode {
+            width: 800,
+            height: 800,
+            .. Default::default()
+        }
+    };
+    let ctx = &mut Context::load_from_conf("game_of_life", "ggez", c).unwrap();
     let state = &mut MainState::new(ctx).unwrap();
     event::run(ctx, state).unwrap();
 }

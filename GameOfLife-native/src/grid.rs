@@ -1,6 +1,9 @@
+use cell::Cell;
+use sim::Sim;
+
 #[derive(Default, Clone, PartialEq)]
 pub struct Grid {
-    rows: Vec<Vec<u32>>,
+    rows: Vec<Vec<Cell>>,
     width: u32,
     height: u32
 }
@@ -12,7 +15,7 @@ impl Grid {
         for i in 0..height {
             let mut c = Vec::new();
             for i in 0..width {
-                c.push(0);
+                c.push(Cell::Dead);
             }
             r.push(c);
         }
@@ -20,7 +23,7 @@ impl Grid {
         Self { rows: r, width, height }
     }
 
-    pub fn cells_with_pos(&self) -> Vec<(u32, u32, u32)> {
+    pub fn cells_with_pos(&self) -> Vec<(Cell, u32, u32)> {
         let mut res = Vec::new();
         let mut x = 0;
         let mut y = 0;
@@ -37,11 +40,11 @@ impl Grid {
 
     pub fn alive(&self) -> Vec<(u32, u32)> {
         self.cells_with_pos().iter().filter(|&x| {
-            x.0 == 1    
+            x.0 == Cell::Alive
         }).map(|e| { (e.1, e.2) }).collect()
     }
 
-    pub fn set(&mut self, x: u32, y: u32, v: u32) {
+    pub fn set(&mut self, x: u32, y: u32, v: Cell) {
         let mut rows = &mut (self.rows);
         let mut row = &mut (rows[y as usize]);
         row[x as usize] = v.clone();
@@ -49,7 +52,10 @@ impl Grid {
     
     pub fn toggle(&mut self, x: u32, y: u32) {
         let v = self.rows[y as usize][x as usize];
-        self.set(x, y, (v == 0) as u32);
+        self.set(x, y, match v {
+            Cell::Dead => Cell::Alive,
+            Cell::Alive => Cell::Dead
+        });
     }
 
     pub fn grid_pos_for_mouse_pos(&self, sqr_size: u32, x: i32, y: i32) -> (u32, u32) {
@@ -73,5 +79,11 @@ impl Grid {
 
     pub fn height(&self) -> u32 {
         self.height
+    }
+
+    pub fn simulate(&mut self) {
+        // Simulate using static methods from Sim.
+        let new_grid = Sim::simulate(&self.rows);
+        self.rows = new_grid;
     }
 }

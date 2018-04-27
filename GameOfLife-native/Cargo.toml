@@ -5,6 +5,7 @@ authors = ["Anirudh Balaji <anirudhqazxswced@gmail.com>"]
 
 [dependencies]
 ggez = "*"
+rayon = "1.0.1"
 
 [profile.dev]
 opt-level = 3
