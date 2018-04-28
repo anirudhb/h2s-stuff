@@ -9,7 +9,7 @@ Answer the questions with default answers.
 
 Then, after cloning the repository (`git clone https://github.com/anirudhb/h2s-stuff.git`):
 ```
-cargo build && cargo run
+cd GameOfLife-native && cargo build && cargo run
 ```
 
 #### Controls
