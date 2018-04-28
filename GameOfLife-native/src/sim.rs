@@ -55,12 +55,12 @@ impl Sim {
     }
 
     fn flexible_index<T>(v: &Vec<T>, i: i32) -> &T {
-        if i < 0 {
-            // Return width - i
-            Self::flexible_index(&v, ((v.len() as i32) - 1i32 - i))
-        } else if i > (v.len() - 1) as i32 {
+        if i < 0 || i > (v.len() - 1) as i32 {
             // Should wraparound
-            &v[(i % (v.len() as i32)) as usize]
+            // Use MODULO
+            let a = i;
+            let b = v.len() as i32;
+            &v[(((a % b) + b) % b) as usize]
         } else {
             &v[i as usize]
         }

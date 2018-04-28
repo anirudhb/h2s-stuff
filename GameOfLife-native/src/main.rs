@@ -20,6 +20,7 @@ struct MainState {
     curx: u32,
     cury: u32,
     update_queue: Vec<Task>,
+    _mousing: bool,
 }
 
 impl MainState {
@@ -35,6 +36,7 @@ impl MainState {
             cury: 0,
             grid: grid::Grid::new(100, 100),
             update_queue: Vec::new(),
+            _mousing: false,
         };
         println!("Actual window size: {} x {}", win_size.0, win_size.1);
         Ok(s)
@@ -73,7 +75,11 @@ impl EventHandler for MainState {
             ))?;
         }
         // Draw cursor.
-        graphics::set_color(ctx, Color::new(0f32, 1f32, 0f32, 0.3));
+        if self.grid.is_alive(self.curx, self.cury) {
+            graphics::set_color(ctx, Color::new(0f32, 0f32, 0f32, 0.5));
+        } else {
+            graphics::set_color(ctx, Color::new(0f32, 1f32, 0f32, 0.3));
+        }
         graphics::rectangle(ctx, DrawMode::Fill, Rect::new(
                 (self.curx*sqr_size) as f32, (self.cury*sqr_size) as f32,
                 sqr_size as f32, sqr_size as f32
@@ -84,22 +90,22 @@ impl EventHandler for MainState {
 
     fn key_down_event(&mut self, ctx: &mut Context, keycode: Keycode, keymod: Mod, repeat: bool) {
         match keycode {
-            Keycode::Up => {
+            Keycode::Up | Keycode::K => {
                 if self.cury > 0 {
                     self.cury -= 1;
                 }
             },
-            Keycode::Down => {
+            Keycode::Down | Keycode::J => {
                 if self.cury < self.grid.height()-1 {
                     self.cury += 1;
                 }
             },
-            Keycode::Left => {
+            Keycode::Left | Keycode::H => {
                 if self.curx > 0 {
                     self.curx -= 1;
                 }
             },
-            Keycode::Right => {
+            Keycode::Right | Keycode::L => {
                 if self.curx < self.grid.width()-1 {
                     self.curx += 1;
                 }
@@ -114,7 +120,20 @@ impl EventHandler for MainState {
             },
             Keycode::Tab => {
                 self.step();
-            }
+            },
+            _ => {},
+        }
+    }
+
+    fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: i32, y: i32) {
+        // Convert mouse coordinate to grid x,y
+        let (x, y) = self.grid.grid_pos_for_mouse_pos(8, x, y);
+        match button {
+            MouseButton::Left => {
+                self.curx = x;
+                self.cury = y;
+            },
+            MouseButton::Right => self.grid.toggle(x, y),
             _ => {},
         }
     }
@@ -134,7 +153,7 @@ fn main() {
             icon: "".to_owned(),
             resizable: true,
             allow_highdpi: true,
-            samples: conf::NumSamples::One,
+            samples: conf::NumSamples::Two,
         },
         backend: conf::Backend::default(),
         window_mode: conf::WindowMode {

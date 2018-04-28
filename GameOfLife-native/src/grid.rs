@@ -49,6 +49,10 @@ impl Grid {
         let mut row = &mut (rows[y as usize]);
         row[x as usize] = v.clone();
     }
+
+    pub fn is_alive(&self, x: u32, y: u32) -> bool {
+        self.rows[y as usize][x as usize] == Cell::Alive
+    }
     
     pub fn toggle(&mut self, x: u32, y: u32) {
         let v = self.rows[y as usize][x as usize];
@@ -68,8 +72,8 @@ impl Grid {
         if y < 0 {
             yy = 0;
         }
-        let clamped_x = (xx / sqr_size as i32) + 4;
-        let clamped_y = (yy / sqr_size as i32) + 4;
+        let clamped_x = (xx / sqr_size as i32);
+        let clamped_y = (yy / sqr_size as i32);
         (clamped_x as u32, clamped_y as u32)
     }
     
