@@ -34,6 +34,7 @@ struct MainState {
     cury: u32,
     update_queue: Vec<Task>,
     _mousing: bool,
+    _running: bool,
 }
 
 impl MainState {
@@ -47,7 +48,7 @@ impl MainState {
             rle_f.read_to_string(&mut rle_s);
             // First line.
             let mut lines = rle_s.lines();
-            let (first_line, second_line) = (lines.nth(0).unwrap(), lines.nth(0).unwrap());
+            let (first_line, second_line) = (lines.nth(0).unwrap(), lines.map(|x| x.replace("\n","").to_owned()).collect::<String>());
             println!("{}", second_line);
             let mut fls = first_line.split(",");
             // for x in fls {
@@ -114,8 +115,8 @@ impl MainState {
                 for (x, c) in row.iter().enumerate() {
                     grid.set(x as u32, y as u32, c.clone());
                     match c {
-                        &cell::Cell::Alive => print!("o"),
-                        &cell::Cell::Dead => print!("b"),
+                        &cell::Cell::Alive => print!("O"),
+                        &cell::Cell::Dead => print!("."),
                     }
                 }
                 println!();
@@ -132,6 +133,7 @@ impl MainState {
             grid,
             update_queue: Vec::new(),
             _mousing: false,
+            _running: false,
         };
         println!("Actual window size: {} x {}", win_size.0, win_size.1);
         Ok(s)
@@ -146,6 +148,9 @@ impl EventHandler for MainState {
             match task {
                 Step => self.step(),
             }
+        }
+        if self._running {
+            self.step();
         }
         self.update_queue.clear();
         Ok(())
@@ -210,6 +215,7 @@ impl EventHandler for MainState {
                     self.update_queue.push(Task::Step);
                 }
             },
+            Keycode::B => self._running = !self._running,
             Keycode::KpEnter | Keycode::Return | Keycode::Return2 | Keycode::Space => {
                 self.grid.toggle(self.curx, self.cury);
             },
