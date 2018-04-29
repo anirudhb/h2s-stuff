@@ -24,4 +24,5 @@ Down arrow or J | Move the cursor down. | Yes
 Up arrow or K | Move the cursor up. | Yes
 Enter or Space | Toggle the cell under the cursor. | Yes
 Left mouse button | Move the cursor to the mouse. | No
+Initial left mouse button | Load the RLE file (if provided) under the cursor. | No
 Right mouse button | Toggle the cell under the mouse. | No
