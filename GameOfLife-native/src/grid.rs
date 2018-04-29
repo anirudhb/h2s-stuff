@@ -90,4 +90,17 @@ impl Grid {
         let new_grid = Sim::simulate(&self.rows);
         self.rows = new_grid;
     }
+
+    pub fn resize(&mut self, dr: i32, dc: i32) {
+        let new_grid_len = ((self.rows.len() as i32) + dr) as usize;
+        let new_row_len = ((self.rows[0].len() as i32) + dc) as usize;
+        self.rows.resize(new_grid_len, Vec::new());
+        for row in self.rows.iter_mut() {
+            if row.len() != new_row_len {
+                row.resize(new_row_len, Cell::Dead);
+            }
+        }
+        self.height = new_grid_len as u32;
+        self.width = new_row_len as u32;
+    }
 }
