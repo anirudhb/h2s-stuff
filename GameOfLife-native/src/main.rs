@@ -27,6 +27,8 @@ enum Task {
 
 struct MainState {
     grid: grid::Grid,
+    loaded_grid: Vec<Vec<cell::Cell>>,
+    loaded: bool,
     width: u32,
     height: u32,
     sqr_size: u32,
@@ -41,6 +43,8 @@ impl MainState {
     fn new(ctx: &mut Context, rle_filename: String) -> GameResult<Self> {
         graphics::set_screen_coordinates(ctx, Rect::new(0f32, 0f32, 800f32, 800f32));
         let mut grid = grid::Grid::new(100, 100);
+        let mut loaded_grid = Vec::new();
+        let mut loaded = false;
         if !rle_filename.is_empty() {
             // Load file and read contents.
             let mut rle_f = File::open(rle_filename).expect("Failed to open file.");
@@ -113,7 +117,6 @@ impl MainState {
             // Add to larger grid.
             for (y, row) in g.iter().enumerate() {
                 for (x, c) in row.iter().enumerate() {
-                    grid.set(x as u32, y as u32, c.clone());
                     match c {
                         &cell::Cell::Alive => print!("O"),
                         &cell::Cell::Dead => print!("."),
@@ -121,6 +124,8 @@ impl MainState {
                 }
                 println!();
             }
+            loaded_grid = g;
+            loaded = true;
         }
 
         let win_size = graphics::get_size(ctx);
@@ -131,6 +136,8 @@ impl MainState {
             curx: 0,
             cury: 0,
             grid,
+            loaded_grid,
+            loaded,
             update_queue: Vec::new(),
             _mousing: false,
             _running: false,
@@ -233,11 +240,16 @@ impl EventHandler for MainState {
             MouseButton::Left => {
                 self.curx = x;
                 self.cury = y;
+                if self.loaded {
+                    self.load_grid(x, y);
+                    self.loaded = false;
+                }
             },
             MouseButton::Right => self.grid.toggle(x, y),
             _ => {},
         }
     }
+
 
     fn resize_event(&mut self, ctx: &mut Context, width: u32, height: u32) {
         if (width%8 + height%8) != 0 {
@@ -263,6 +275,16 @@ impl EventHandler for MainState {
 impl MainState {
     fn step(&mut self) {
         self.grid.simulate();
+    }
+
+    fn load_grid(&mut self, x: u32, y: u32) {
+        for (yy, r) in self.loaded_grid.iter().enumerate() {
+            for (xx, c) in r.iter().enumerate() {
+                if c == &cell::Cell::Alive {
+                    self.grid.set((xx as u32) + x, (yy as u32) + y, cell::Cell::Alive);
+                }
+            }
+        }
     }
 }
 
