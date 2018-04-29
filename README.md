@@ -17,6 +17,7 @@ Key | Action | Holdable/Draggable
 ----|--------|-------------------
 Tab | Step one generation. | Yes
  T  | Step 10 generations. | Yes
+ B  | Toggle continuously running the simulation. | Yes?
 Right arrow or L | Move the cursor right. | Yes
 Left arrow or H | Move the cursor left. | Yes
 Down arrow or J | Move the cursor down. | Yes
