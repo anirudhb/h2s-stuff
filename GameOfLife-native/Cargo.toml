@@ -6,6 +6,8 @@ authors = ["Anirudh Balaji <anirudhqazxswced@gmail.com>"]
 [dependencies]
 ggez = "*"
 rayon = "1.0.1"
+mio = "0.6.14"
+rand = "0.4.2"
 
 [profile.dev]
 opt-level = 3

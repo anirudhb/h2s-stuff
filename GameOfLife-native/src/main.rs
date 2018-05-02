@@ -1,23 +1,34 @@
 extern crate ggez;
+extern crate mio;
+// extern crate rand;
 extern crate rayon;
 use ggez::{
     *,
     graphics::{
         DrawMode,
         Color,
-        Rect,
         Drawable,
+        MeshBuilder
     },
     event::*
+};
+use mio::{
+    Poll, PollOpt, Ready, Token, Events,
+    unix::EventedFd
 };
 mod grid;
 mod cell;
 mod sim;
+mod rle;
 
 use std::{
     env,
-    io::prelude::*,
+    io::{
+        self,
+        prelude::*,
+    },
     fs::File,
+    time::Duration,
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -35,6 +46,7 @@ struct MainState {
     curx: u32,
     cury: u32,
     update_queue: Vec<Task>,
+    _poll: Poll,
     _mousing: bool,
     _running: bool,
 }
@@ -42,103 +54,37 @@ struct MainState {
 impl MainState {
     fn new(ctx: &mut Context, rle_filename: String) -> GameResult<Self> {
         graphics::set_screen_coordinates(ctx, Rect::new(0f32, 0f32, 800f32, 800f32));
-        let mut grid = grid::Grid::new(100, 100);
         let mut loaded_grid = Vec::new();
         let mut loaded = false;
         if !rle_filename.is_empty() {
-            // Load file and read contents.
-            let mut rle_f = File::open(rle_filename).expect("Failed to open file.");
-            let mut rle_s = String::new();
-            rle_f.read_to_string(&mut rle_s);
-            // First line.
-            let mut lines = rle_s.lines();
-            let (first_line, second_line) = (lines.nth(0).unwrap(), lines.map(|x| x.replace("\n","").to_owned()).collect::<String>());
-            println!("{}", second_line);
-            let mut fls = first_line.split(",");
-            // for x in fls {
-            //     println!("{}", x);
-            //     panic!();
-            // }
-            let fls1 = fls.nth(0).unwrap().clone().trim();
-            let fls2 = fls.nth(0).unwrap().clone().trim();
-            let (x, y) = (fls1.split("=").nth(1).unwrap().trim(), fls2.split("=").nth(1).unwrap().trim());
-            let x = x.parse::<u32>().unwrap();
-            let y = y.parse::<u32>().unwrap();
-            // Now read run-length-encoding.
-            let mut g = Vec::with_capacity(y as usize);
-            for _ in 0..y {
-                g.push(Vec::with_capacity(x as usize));
-            }
-            let mut finished_lines = 0;
-            let mut pkc_sl = second_line.chars().peekable();
-            let mut num_str = String::new();
-            while let Some(ch) = pkc_sl.next() {
-                use std::ops::IndexMut;
-                match ch {
-                    '0'...'9' => num_str.push(ch),
-                    c @ 'b' | c @ 'o' => {
-                        // Handle cell.
-                        let mut num = 1;
-                        if !num_str.is_empty() {
-                            num = num_str.parse::<u32>().expect("Failed to parse number");
-                        }
-                        let c = match c {
-                            'b' => cell::Cell::Dead,
-                            'o' => cell::Cell::Alive,
-                            _ => unreachable!(),
-                        };
-                        let mut v = g.index_mut(finished_lines as usize);
-                        for _ in 0..num {
-                            if v.len() >= (x as _) {
-                                break;
-                            }
-                            v.push(c);
-                        }
-                        num_str.clear();
-                    },
-                    c @ '$' | c @ '!' => {
-                        let mut v = g.index_mut(finished_lines as usize);
-                        let to_fill = (x as usize) - v.len();
-                        for _ in 0..to_fill {
-                            v.push(cell::Cell::Dead);
-                        }
-                        num_str.clear();
-                        match c {
-                            '$' => finished_lines += 1,
-                            '!' => break,
-                            _ => unreachable!(),
-                        }
-                        continue;
-                    },
-                    _ => {},
-                }
-            }
-            // Processed grid.
-            // Add to larger grid.
-            for (y, row) in g.iter().enumerate() {
-                for (x, c) in row.iter().enumerate() {
-                    match c {
-                        &cell::Cell::Alive => print!("O"),
-                        &cell::Cell::Dead => print!("."),
-                    }
-                }
-                println!();
-            }
-            loaded_grid = g;
+            loaded_grid = rle::RLE::load(rle_filename).unwrap().into_inner();
             loaded = true;
         }
 
+        // Create poll and register stdin event.
+        let mut poll = Poll::new().unwrap();
+        // Get fd of stdin
+        use std::os::unix::io::AsRawFd;
+        let raw_fd = io::stdin().as_raw_fd();
+        let evented_fd = EventedFd(&raw_fd);
+        poll.register(&evented_fd, Token(0), Ready::readable(), PollOpt::level()).unwrap();
+
+        let sqr_size = 1;
+        let (width, height) = (800, 800);
+        let grid = grid::Grid::new(width/sqr_size, height/sqr_size);
+
         let win_size = graphics::get_size(ctx);
         let s = Self {
-            width: 800,
-            height: 800,
-            sqr_size: 8,
+            width,
+            height,
+            sqr_size,
             curx: 0,
             cury: 0,
             grid,
             loaded_grid,
             loaded,
             update_queue: Vec::new(),
+            _poll: poll,
             _mousing: false,
             _running: false,
         };
@@ -158,6 +104,29 @@ impl EventHandler for MainState {
         }
         if self._running {
             self.step();
+        }
+        let mut ev = Events::with_capacity(1024);
+        self._poll.poll(&mut ev, Some(Duration::from_secs(0)));
+        for ev in ev.iter() {
+            match ev.token() {
+                Token(0) => {
+                    // Read from stdin?
+                    let mut s = String::new();
+                    let read = io::stdin().read_line(&mut s);
+                    let bytes = b"> ";
+                    let stdout = io::stdout();
+                    let mut stdout = stdout.lock();
+                    stdout.write(bytes);
+                    stdout.flush();
+                },
+                _ => unreachable!(),
+            }
+        }
+        {
+            let stdout = io::stdout();
+            let mut stdout = stdout.lock();
+            write!(stdout, "\rFPS: {}", timer::get_fps(_ctx));
+            stdout.flush();
         }
         self.update_queue.clear();
         Ok(())
@@ -235,7 +204,7 @@ impl EventHandler for MainState {
 
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: i32, y: i32) {
         // Convert mouse coordinate to grid x,y
-        let (x, y) = self.grid.grid_pos_for_mouse_pos(8, x, y);
+        let (x, y) = self.grid.grid_pos_for_mouse_pos(self.sqr_size, x, y);
         match button {
             MouseButton::Left => {
                 self.curx = x;
@@ -249,7 +218,6 @@ impl EventHandler for MainState {
             _ => {},
         }
     }
-
 
     fn resize_event(&mut self, ctx: &mut Context, width: u32, height: u32) {
         if (width%8 + height%8) != 0 {
@@ -307,5 +275,11 @@ fn main() {
     let ctx = &mut Context::load_from_conf("game_of_life", "ggez", c).unwrap();
     let rle_filename = std::env::args().nth(1).unwrap_or("".to_owned());
     let state = &mut MainState::new(ctx, rle_filename).unwrap();
+    {
+        let stdout = io::stdout();
+        let mut stdout = stdout.lock();
+        stdout.write(b"> ");
+        stdout.flush();
+    }
     event::run(ctx, state).unwrap();
 }

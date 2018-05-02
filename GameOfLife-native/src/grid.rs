@@ -1,6 +1,8 @@
 use cell::Cell;
 use sim::Sim;
 
+// use rand::{Rng, self};
+
 #[derive(Default, Clone, PartialEq)]
 pub struct Grid {
     rows: Vec<Vec<Cell>>,
@@ -11,11 +13,16 @@ pub struct Grid {
 impl Grid {
     pub fn new(width: u32, height: u32) -> Self {
         let mut r = Vec::new();
+        // let mut rng = rand::thread_rng();
         
         for i in 0..height {
             let mut c = Vec::new();
             for i in 0..width {
-                c.push(Cell::Dead);
+                // if rng.gen() {
+                //     c.push(Cell::Alive);
+                // } else {
+                    c.push(Cell::Dead);
+                // }
             }
             r.push(c);
         }
@@ -102,5 +109,9 @@ impl Grid {
         }
         self.height = new_grid_len as u32;
         self.width = new_row_len as u32;
+    }
+
+    pub fn into_inner(self) -> Vec<Vec<Cell>> {
+        self.rows
     }
 }
