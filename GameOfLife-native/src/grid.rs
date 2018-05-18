@@ -13,16 +13,16 @@ pub struct Grid {
 impl Grid {
     pub fn new(width: u32, height: u32) -> Self {
         let mut r = Vec::new();
-        // let mut rng = rand::thread_rng();
+//         let mut rng = rand::thread_rng();
         
         for i in 0..height {
             let mut c = Vec::new();
             for i in 0..width {
-                // if rng.gen() {
-                //     c.push(Cell::Alive);
-                // } else {
+//                 if rng.gen() {
+//                     c.push(Cell::Alive);
+//                 } else {
                     c.push(Cell::Dead);
-                // }
+//                 }
             }
             r.push(c);
         }
@@ -43,6 +43,10 @@ impl Grid {
             y += 1;
         }
         res
+    }
+
+    pub fn get(&self, x: u32, y: u32) -> Cell {
+        self.rows[y as usize][x as usize].clone()
     }
 
     pub fn alive(&self) -> Vec<(u32, u32)> {
@@ -70,7 +74,6 @@ impl Grid {
     }
 
     pub fn grid_pos_for_mouse_pos(&self, sqr_size: u32, x: i32, y: i32) -> (u32, u32) {
-        println!("Got mouse x: {} y: {}", x, y);
         let mut xx = x;
         let mut yy = y;
         if x < 0 {

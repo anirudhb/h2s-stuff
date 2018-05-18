@@ -1,14 +1,15 @@
 extern crate ggez;
 extern crate mio;
-// extern crate rand;
+extern crate rand;
 extern crate rayon;
 use ggez::{
     *,
     graphics::{
         DrawMode,
         Color,
+        Rect,
         Drawable,
-        MeshBuilder
+        MeshBuilder,
     },
     event::*
 };
@@ -49,6 +50,7 @@ struct MainState {
     _poll: Poll,
     _mousing: bool,
     _running: bool,
+    _state: cell::Cell,
 }
 
 impl MainState {
@@ -69,7 +71,7 @@ impl MainState {
         let evented_fd = EventedFd(&raw_fd);
         poll.register(&evented_fd, Token(0), Ready::readable(), PollOpt::level()).unwrap();
 
-        let sqr_size = 1;
+        let sqr_size = 8;
         let (width, height) = (800, 800);
         let grid = grid::Grid::new(width/sqr_size, height/sqr_size);
 
@@ -87,6 +89,7 @@ impl MainState {
             _poll: poll,
             _mousing: false,
             _running: false,
+            _state: cell::Cell::Dead,
         };
         println!("Actual window size: {} x {}", win_size.0, win_size.1);
         Ok(s)
@@ -122,12 +125,6 @@ impl EventHandler for MainState {
                 _ => unreachable!(),
             }
         }
-        {
-            let stdout = io::stdout();
-            let mut stdout = stdout.lock();
-            write!(stdout, "\rFPS: {}", timer::get_fps(_ctx));
-            stdout.flush();
-        }
         self.update_queue.clear();
         Ok(())
     }
@@ -140,16 +137,30 @@ impl EventHandler for MainState {
         graphics::rectangle(ctx, graphics::DrawMode::Fill, Rect::new(
             0f32, 0f32, ww as f32, wh as f32
         ))?;
+        // XXX: Experimental MeshBuilder caching to increase performance.
+        let mut meshbuilder = MeshBuilder::new();
         // Draw each alive square
         graphics::set_color(ctx, Color::new(0f32, 1f32, 0f32, 1f32))?;
         for (x, y) in self.grid.alive() {
             // println!("Got cell: {0} @ ({1}, {2})", cell, x, y);
-            graphics::rectangle(ctx, graphics::DrawMode::Fill, Rect::new(
-                (x*sqr_size) as f32,
-                (y*sqr_size) as f32,
-                sqr_size as f32, sqr_size as f32
-            ))?;
+            // graphics::rectangle(ctx, graphics::DrawMode::Fill, Rect::new(
+                // (x*sqr_size) as f32,
+                // (y*sqr_size) as f32,
+                // sqr_size as f32, sqr_size as f32
+            // ))?;
+            use graphics::Point2;
+            let ix = (x*sqr_size) as f32;
+            let iy = (y*sqr_size) as f32;
+            let fsqr = sqr_size as f32;
+            meshbuilder.polygon(graphics::DrawMode::Fill, &[
+                Point2::new(ix, iy),
+                Point2::new(ix+fsqr, iy),
+                Point2::new(ix+fsqr, iy+fsqr),
+                Point2::new(ix, iy+fsqr),
+            ]);
         }
+        let mesh = meshbuilder.build(ctx)?;
+        mesh.draw(ctx, graphics::Point2::new(0f32, 0f32), 0f32);
         // Draw cursor.
         if self.grid.is_alive(self.curx, self.cury) {
             graphics::set_color(ctx, Color::new(0f32, 0f32, 0f32, 0.5));
@@ -214,9 +225,25 @@ impl EventHandler for MainState {
                     self.loaded = false;
                 }
             },
-            MouseButton::Right => self.grid.toggle(x, y),
+            MouseButton::Right => {
+                self._mousing = true;
+                // Save state.
+                self.grid.toggle(x, y);
+                self._state = self.grid.get(x, y);
+            }
             _ => {},
         }
+    }
+
+    fn mouse_motion_event(&mut self, _ctx: &mut Context, _state: MouseState, x: i32, y: i32, _xr: i32, _yr: i32) {
+        if self._mousing {
+            let (x, y) = self.grid.grid_pos_for_mouse_pos(self.sqr_size, x, y);
+            self.grid.set(x, y, self._state);
+        }
+    }
+
+    fn mouse_button_up_event(&mut self, _ctx: &mut Context, _btn: MouseButton, _x: i32, _y: i32) {
+        self._mousing = false;
     }
 
     fn resize_event(&mut self, ctx: &mut Context, width: u32, height: u32) {
@@ -278,8 +305,9 @@ fn main() {
     {
         let stdout = io::stdout();
         let mut stdout = stdout.lock();
-        stdout.write(b"> ");
-        stdout.flush();
+        stdout.write(b"NOTE: doesn't work yet, stub\n").unwrap();
+        stdout.write(b"> ").unwrap();
+        stdout.flush().unwrap();
     }
     event::run(ctx, state).unwrap();
 }
